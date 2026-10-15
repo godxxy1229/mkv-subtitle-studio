@@ -1,0 +1,17 @@
+{
+  "name": "mkv-subtitle-studio",
+  "version": "0.2.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test tests/*.test.mjs",
+    "test:integration": "node tests/integration.mjs",
+    "serve": "node scripts/serve.mjs",
+    "test:long": "node tests/long-duration.mjs"
+  },
+  "license": "MIT",
+  "engines": {
+    "node": ">=20"
+  },
+  "description": "SRT-only, browser-local MKV subtitle track muxer for GitHub Pages"
+}

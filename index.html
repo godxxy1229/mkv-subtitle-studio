@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; object-src 'none'; connect-src 'none'; base-uri 'none'" />
+  <meta name="theme-color" content="#f7f9fc" />
+  <title>MKV Subtitle Studio — 브라우저에서 자막 추가</title>
+  <meta name="description" content="MKV 영상에 SRT 자막을 업로드 없이, 재인코딩 없이 추가합니다. 대용량 파일 스트리밍 저장 지원." />
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="MKV Subtitle Studio" />
+  <meta property="og:description" content="MKV 영상에 SRT 자막 트랙을 업로드·재인코딩 없이 추가하는 브라우저 도구" />
+  <meta property="og:url" content="https://godxxy1229.github.io/mkv-subtitle-studio/" />
+  <meta property="og:locale" content="ko_KR" />
+  <link rel="icon" href="./src/favicon.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="./src/styles.css" />
+  <script type="module" src="./src/app.js"></script>
+</head>
+<body>
+  <main class="shell">
+    <header class="topbar">
+      <div class="brand"><img class="brand-icon" src="./src/favicon.svg" width="34" height="34" alt="" /><span>MKV Subtitle Studio</span></div>
+      <div class="topbar-actions">
+        <span class="local-pill"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/><path d="m9 12 2 2 4-4"/></svg> 100% 로컬 처리</span>
+        <a class="gh-link" href="https://github.com/godxxy1229/mkv-subtitle-studio" target="_blank" rel="noopener" aria-label="GitHub 소스 코드"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0c4.42 0 8 3.58 8 8a8.013 8.013 0 0 1-5.45 7.59c-.4.08-.55-.17-.55-.38 0-.27.01-1.13.01-2.2 0-.75-.25-1.23-.54-1.48 1.78-.2 3.65-.88 3.65-3.95 0-.88-.31-1.59-.82-2.15.08-.2.36-1.02-.08-2.12 0 0-.67-.22-2.2.82-.64-.18-1.32-.27-2-.27-.68 0-1.36.09-2 .27-1.53-1.03-2.2-.82-2.2-.82-.44 1.1-.16 1.92-.08 2.12-.51.56-.82 1.28-.82 2.15 0 3.06 1.86 3.75 3.64 3.95-.23.2-.44.55-.51 1.07-.46.21-1.61.55-2.33-.66-.15-.24-.6-.83-1.23-.82-.67.01-.27.38.01.53.34.19.73.9.82 1.13.16.45.68 1.31 2.69.94 0 .67.01 1.3.01 1.49 0 .21-.15.45-.55.38A7.995 7.995 0 0 1 0 8c0-4.42 3.58-8 8-8Z"/></svg><span>GitHub</span></a>
+      </div>
+    </header>
+
+    <section class="hero" aria-labelledby="main-title">
+      <div class="eyebrow">FAST · PRIVATE · LOSSLESS</div>
+      <h1 id="main-title">영상은 그대로.<br><span>자막만 간단하게.</span></h1>
+      <p>MKV 영상에 SRT 자막 트랙을 추가합니다. 플레이어에서 자막을 켜고 끌 수 있고, 영상은 재인코딩하지도 서버로 보내지도 않습니다.</p>
+      <div class="hero-tags"><span>재인코딩 없음</span><span>화질·음질 그대로</span><span>대용량 파일 지원</span></div>
+    </section>
+
+    <section class="workbench" aria-label="자막 추가 작업">
+      <div class="notice warn" id="browser-warning" role="note" hidden><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/><path d="M12 9v4M12 17h.01"/></svg><span><strong>이 브라우저에서는 256 MiB 이하 파일만 처리할 수 있습니다.</strong> 큰 영상은 데스크톱 Chrome 또는 Edge에서 열어주세요.</span></div>
+
+      <div class="section-head"><span class="section-num">01</span><h2>파일 선택</h2><span class="section-hint">MKV와 SRT를 한 번에 끌어다 놓아도 됩니다</span></div>
+      <div class="input-grid">
+        <label class="dropzone" id="video-zone" for="video-file" tabindex="0">
+          <div class="drop-icon"><svg viewBox="0 0 24 24" width="25" height="25" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="m10 9 5 3-5 3V9Z"/><path d="M3 8h3M3 16h3"/></svg></div>
+          <div class="drop-title">MKV 동영상</div>
+          <div class="drop-sub">클릭하거나 파일을 여기에 놓으세요</div>
+          <div class="file-display" id="video-display">선택된 파일 없음</div>
+          <input id="video-file" type="file" accept=".mkv,video/x-matroska" />
+        </label>
+        <label class="dropzone" id="subtitle-zone" for="subtitle-file" tabindex="0">
+          <div class="drop-icon subtitle-icon"><svg viewBox="0 0 24 24" width="25" height="25" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M6 11h5M6 15h8M14 11h4"/></svg></div>
+          <div class="drop-title">SRT 자막</div>
+          <div class="drop-sub">UTF-8 · CP949/EUC-KR · UTF-16 지원</div>
+          <div class="file-display" id="subtitle-display">선택된 파일 없음</div>
+          <input id="subtitle-file" type="file" accept=".srt,text/plain" />
+        </label>
+      </div>
+
+      <div class="rule"></div>
+      <div class="section-head"><span class="section-num">02</span><h2>자막 설정</h2></div>
+      <div class="settings-grid">
+        <label class="field"><span>자막 언어</span><select id="language"><option value="kor">한국어</option><option value="eng">영어</option><option value="jpn">일본어</option><option value="und">기타 / 미지정</option></select></label>
+        <label class="field"><span>트랙 이름</span><input id="track-name" type="text" maxlength="100" value="한국어 자막" placeholder="자막 트랙 이름" /></label>
+      </div>
+      <label class="checkbox-row"><input id="make-default" type="checkbox" checked /><span>기본 자막으로 설정 <small>(기존 기본 자막은 해제 · 플레이어 설정에 따라 달라짐)</small></span></label>
+
+      <div class="rule"></div>
+      <div class="section-head"><span class="section-num">03</span><h2>MKV 저장</h2></div>
+      <div class="save-notice"><svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="1.8" fill="none" aria-hidden="true"><path d="M12 2 3 6v6c0 5 3 8 9 10 6-2 9-5 9-10V6l-9-4Z"/><path d="m9 12 2 2 4-4"/></svg><span>원본 영상·음성을 복사하며 자막만 추가합니다. <strong>원본은 수정하지 않습니다.</strong> 기존 파일 덮어쓰기는 차단합니다.</span></div>
+      <div class="status" id="status" aria-live="polite">두 파일을 선택하면 시작할 수 있습니다.</div>
+      <div class="progress-wrap" id="progress-wrap" role="progressbar" aria-label="저장 진행률" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" hidden><div class="progress-track"><div id="progress-fill" class="progress-fill"></div></div><span id="progress-number">0%</span></div>
+      <button class="primary-btn" id="start" disabled><span id="start-label">자막 추가 후 MKV 저장</span><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M5 12h14m-7-7 7 7-7 7"/></svg></button>
+      <button class="text-btn" id="cancel" hidden>작업 중단</button>
+      <p class="browser-note" id="browser-note"></p>
+      <ul class="tips">
+        <li>새 MKV 크기만큼 디스크 여유 공간이 필요합니다.</li>
+        <li>저장이 끝날 때까지 탭을 닫거나 PC를 절전 상태로 두지 마세요.</li>
+        <li>v0.2 베타입니다. 원본은 따로 보관하고, 결과 파일을 플레이어에서 확인해주세요.</li>
+      </ul>
+    </section>
+
+    <footer><span>브라우저 안에서 처리 · 서버 업로드 없음</span><span><a href="https://github.com/godxxy1229/mkv-subtitle-studio" target="_blank" rel="noopener">소스 코드</a> · <a href="https://github.com/godxxy1229/mkv-subtitle-studio/issues" target="_blank" rel="noopener">문제 신고</a> · v0.2 베타</span></footer>
+  </main>
+</body>
+</html>
