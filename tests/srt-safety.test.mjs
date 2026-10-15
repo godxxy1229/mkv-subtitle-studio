@@ -14,11 +14,11 @@ test('EUC-KR fallback decodes Korean bytes',()=>{
   assert.equal(decodeSrt(Uint8Array.from([0xc7,0xd1,0xb1,0xdb])).text,'한글');
 });
 test('malformed SRT block is not silently dropped',()=>{
-  assert.throws(()=>parseSrt(one+'\n\n2\ninvalid time\nDo not lose me'),/2번째/);
+  assert.throws(()=>parseSrt(one+'\n\n2\ninvalid time\nDo not lose me'),/Cue 2/);
 });
 test('empty subtitle payload and invalid minutes are rejected',()=>{
-  assert.throws(()=>parseSrt('1\n00:00:00,000 --> 00:00:01,000'),/비어/);
-  assert.throws(()=>parseSrt('1\n00:75:00,000 --> 01:00:00,000\nX'),/잘못/);
+  assert.throws(()=>parseSrt('1\n00:00:00,000 --> 00:00:01,000'),/empty/);
+  assert.throws(()=>parseSrt('1\n00:75:00,000 --> 01:00:00,000\nX'),/Invalid/);
 });
 test('unindexed SRT, overlapping cues and 3 hour timestamps',()=>{
   const result=parseSrt('03:00:00,000 --> 03:00:03,000\nEnd\n\n00:00:00,000 --> 00:00:02,000\nA\n\n00:00:01,000 --> 00:00:03,000\nB');
@@ -29,13 +29,13 @@ test('NUL bytes are rejected, markup is kept as plain cue text',()=>{
   assert.match(parseSrt(one+'<script>never executed</script>')[0].text,/<script>/);
 });
 test('output name guard is case-insensitive and normalized',()=>{
-  assert.throws(()=>assertDifferentFilename('movie.mkv','MOVIE.MKV'),/원본/);
-  assert.throws(()=>assertDifferentFilename('movie.mkv','movie.mkv. '),/원본/);
-  assert.throws(()=>assertDifferentFilename('movie.mkv','output.mp4'),/확장자/);
+  assert.throws(()=>assertDifferentFilename('movie.mkv','MOVIE.MKV'),/source/);
+  assert.throws(()=>assertDifferentFilename('movie.mkv','movie.mkv. '),/source/);
+  assert.throws(()=>assertDifferentFilename('movie.mkv','output.mp4'),/extension/);
   assert.doesNotThrow(()=>assertDifferentFilename('movie.mkv','movie-subtitled.mkv'));
 });
 test('non-empty output files cannot be overwritten',async()=>{
-  await assert.rejects(()=>assertNewOutput({name:'output.mkv',getFile:async()=>({size:100})},'movie.mkv'),/덮어쓰지/);
+  await assert.rejects(()=>assertNewOutput({name:'output.mkv',getFile:async()=>({size:100})},'movie.mkv'),/overwritten/);
   await assertNewOutput({name:'output.mkv',getFile:async()=>({size:0})},'movie.mkv');
 });
 test('EBML SIZE VINT handles >4 GiB without truncation',()=>{

@@ -31,12 +31,12 @@ test('SRT parse: BOM, multiline, two cues, optional decimal point, sorting', () 
 });
 
 test('SRT parse: empty, no times, invalid ranges', () => {
-  assert.throws(()=>parseSrt(''),/비어/);
-  assert.throws(()=>parseSrt('hello world'),/유효한/);
-  assert.throws(()=>parseSrt('1\n00:00:03,000 --> 00:00:02,000\nHi'),/잘못/);
+  assert.throws(()=>parseSrt(''),/empty/);
+  assert.throws(()=>parseSrt('hello world'),/valid/);
+  assert.throws(()=>parseSrt('1\n00:00:03,000 --> 00:00:02,000\nHi'),/Invalid/);
 });
 
 test('reject malformed EBML headers', () => {
   assert.throws(()=>parseHeader(new Uint8Array([0])),/VINT/);
-  assert.throws(()=>parseHeader(new Uint8Array([0x1F,0x43,0xB6,0x75])),/ID|헤더/);
+  assert.throws(()=>parseHeader(new Uint8Array([0x1F,0x43,0xB6,0x75])),/ID|header/);
 });

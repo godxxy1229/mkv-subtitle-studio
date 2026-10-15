@@ -19,26 +19,26 @@ export const ID = Object.freeze({
 });
 
 const safe = n => {
-  if (n > BigInt(Number.MAX_SAFE_INTEGER)) throw new Error('이 파일 크기는 브라우저가 안전하게 처리할 수 있는 범위를 초과합니다.');
+  if (n > BigInt(Number.MAX_SAFE_INTEGER)) throw new Error('This file is too large for the browser to handle safely.');
   return Number(n);
 };
 const vintWidth = b => {
-  if (!b) throw new Error('잘못된 EBML VINT입니다.');
+  if (!b) throw new Error('Invalid EBML VINT.');
   let width = 1, bit = 0x80;
   while (!(b & bit) && width < 8) { bit >>= 1; width++; }
-  if (!(b & bit)) throw new Error('잘못된 EBML VINT 시작 바이트입니다.');
+  if (!(b & bit)) throw new Error('Invalid EBML VINT leading byte.');
   return width;
 };
 
 /** Read an element header from a Uint8Array, with offsets relative to the array. */
 export function parseHeader(bytes, at = 0) {
-  if (at >= bytes.length) throw new Error('EBML 헤더가 잘렸습니다.');
+  if (at >= bytes.length) throw new Error('Truncated EBML header.');
   const idWidth = vintWidth(bytes[at]);
-  if (idWidth > 4 || at + idWidth >= bytes.length) throw new Error('잘못된 EBML 요소 ID입니다.');
+  if (idWidth > 4 || at + idWidth >= bytes.length) throw new Error('Invalid EBML element ID.');
   let id = 0;
   for (let i = 0; i < idWidth; i++) id = id * 256 + bytes[at + i];
   const sizeWidth = vintWidth(bytes[at + idWidth]);
-  if (at + idWidth + sizeWidth > bytes.length) throw new Error('EBML 크기 헤더가 잘렸습니다.');
+  if (at + idWidth + sizeWidth > bytes.length) throw new Error('Truncated EBML size header.');
   const mask = 0xff >>> sizeWidth;
   let value = BigInt(bytes[at + idWidth] & mask);
   for (let i = 1; i < sizeWidth; i++) value = (value << 8n) | BigInt(bytes[at + idWidth + i]);
@@ -53,11 +53,11 @@ export function parseChildren(data, start = 0, end = data.length) {
   let pos = start;
   while (pos < end) {
     const e = parseHeader(data, pos);
-    if (e.unknown || e.end > end) throw new Error('손상되었거나 지원되지 않는 크기의 MKV 메타데이터입니다.');
+    if (e.unknown || e.end > end) throw new Error('MKV metadata is damaged or has an unsupported size.');
     result.push({ ...e, start: pos });
     pos = e.end;
   }
-  if (pos !== end) throw new Error('잘못된 MKV 메타데이터 경계입니다.');
+  if (pos !== end) throw new Error('Invalid MKV metadata boundary.');
   return result;
 }
 
@@ -68,18 +68,18 @@ export async function fileHeader(file, offset) {
 }
 
 export function readUInt(bytes) {
-  if (bytes.length > 8) throw new Error('지나치게 긴 정수입니다.');
+  if (bytes.length > 8) throw new Error('Integer is too long.');
   let n = 0n;
   for (const b of bytes) n = (n << 8n) | BigInt(b);
   return safe(n);
 }
 export function encodeUInt(n, width = 0) {
   let v = BigInt(n);
-  if (v < 0n) throw new Error('음수는 unsigned로 저장할 수 없습니다.');
+  if (v < 0n) throw new Error('Negative numbers cannot be stored as unsigned.');
   let needed = 1;
   while (v >> BigInt(needed * 8)) needed++;
   const len = width || needed;
-  if (len < needed || len > 8) throw new Error('잘못된 unsigned 정수 길이입니다.');
+  if (len < needed || len > 8) throw new Error('Invalid unsigned integer length.');
   const bytes = new Uint8Array(len);
   for (let i = len - 1; i >= 0; i--) { bytes[i] = Number(v & 255n); v >>= 8n; }
   return bytes;
@@ -92,10 +92,10 @@ export function encodeId(id) {
 }
 export function encodeVint(n, minWidth = 1) {
   const value = BigInt(n);
-  if (value < 0n) throw new Error('음수 크기는 지원되지 않습니다.');
+  if (value < 0n) throw new Error('Negative sizes are not supported.');
   let width = minWidth;
   while (width <= 8 && value >= (1n << BigInt(width * 7)) - 1n) width++;
-  if (width > 8) throw new Error('EBML 크기를 표현할 수 없습니다.');
+  if (width > 8) throw new Error('EBML size cannot be represented.');
   let v = value | (1n << BigInt(width * 7));
   const bytes = new Uint8Array(width);
   for (let i = width - 1; i >= 0; i--) { bytes[i] = Number(v & 255n); v >>= 8n; }

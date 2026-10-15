@@ -7,7 +7,7 @@ const SEEK_ITEMS = [ID.Info, ID.Tracks, ID.Chapters, ID.Attachments, ID.Tags, ID
 function ensure(condition, message) { if (!condition) throw new Error(message); }
 
 async function readElementData(file, item, max = MAX_META) {
-  ensure(item.size <= max, 'MKV 메타데이터가 너무 커서 처리할 수 없습니다.');
+  ensure(item.size <= max, 'MKV metadata is too large to process.');
   return new Uint8Array(await file.slice(item.dataStart, item.end).arrayBuffer());
 }
 
@@ -21,30 +21,30 @@ async function clusterTimestamp(file, item, signal) {
     }
     const e=parseHeader(cache,at-cacheStart);
     const child={...e,start:at,dataStart:cacheStart+e.dataStart,end:e.unknown?null:cacheStart+e.end};
-    ensure(!child.unknown && child.end<=boundary,'지원되지 않거나 잘린 클러스터 요소입니다.');
+    ensure(!child.unknown && child.end<=boundary,'Unsupported or truncated Cluster element.');
     return child;
   }
   let found=null,position=item.dataStart,count=0;
   while(position<item.end){
-    if(signal?.aborted)throw new DOMException('작업이 취소되었습니다.','AbortError');
+    if(signal?.aborted)throw new DOMException('The operation was cancelled.','AbortError');
     const child=await header(position,item.end);
-    ensure(++count<=2000000,'단일 클러스터의 요소가 지나치게 많습니다.');
+    ensure(++count<=2000000,'A single Cluster contains too many elements.');
     ensure(child.id!==ID.Position && child.id!==ID.PrevSize,
-      '내부 위치/이전 크기를 기록한 클러스터는 현재 지원하지 않습니다.');
+      'Clusters with Position/PrevSize elements are not supported.');
     if(child.id===ID.Timestamp){
-      ensure(found===null && child.size<=8,'잘못된 클러스터 시간 정보입니다.');
+      ensure(found===null && child.size<=8,'Invalid Cluster timestamp.');
       found=readUInt(new Uint8Array(await file.slice(child.dataStart,child.end).arrayBuffer()));
     }
     if(child.id===ID.BlockGroup){
       for(let pos=child.dataStart;pos<child.end;){
         const part=await header(pos,child.end);
-        ensure(part.id!==0xC8,'위치 참조형 ReferenceFrame 블록은 현재 지원하지 않습니다.');
+        ensure(part.id!==0xC8,'ReferenceFrame blocks are not supported.');
         pos=part.end;
       }
     }
     position=child.end;
   }
-  ensure(found!==null,'클러스터의 Timestamp를 읽을 수 없습니다.');
+  ensure(found!==null,'Cannot read the Cluster timestamp.');
   return found;
 }
 
@@ -56,10 +56,10 @@ async function outputEbmlHeader(file, ebml) {
   const value = (id,def) => { const e=get(id);return e?readUInt(data.subarray(e.dataStart,e.end)):def; };
   const type = get(ID.DocType);
   ensure(type && new TextDecoder().decode(data.subarray(type.dataStart,type.end))==='matroska',
-    'Matroska MKV만 지원합니다. WebM/MP4 확장자를 바꾼 파일은 지원하지 않습니다.');
+    'Only Matroska MKV files are supported. Renamed WebM/MP4 files are not.');
   ensure(value(ID.EBMLReadVersion,1)<=1 && value(ID.DocTypeReadVersion,1)<=4 &&
     value(ID.EBMLMaxIDLength,4)<=4 && value(ID.EBMLMaxSizeLength,8)<=8,
-    '지원 범위를 벗어나는 MKV 문서 버전입니다.');
+    'Unsupported MKV document version.');
   const parts=children.filter(e=>![ID.DocTypeVersion,ID.CRC32].includes(e.id)).map(e=>rawChild(data,e));
   parts.push(uintElement(ID.DocTypeVersion,Math.max(4,value(ID.DocTypeVersion,1))));
   return master(ID.EBML,...parts);
@@ -70,7 +70,7 @@ function timestampScaleOf(infoData) {
   for (const e of parseChildren(infoData)) if (e.id === ID.TimestampScale) {
     scale = readUInt(infoData.subarray(e.dataStart,e.end));
   }
-  ensure(Number.isSafeInteger(scale) && scale > 0, 'MKV 타임스탬프 배율이 잘못되었습니다.');
+  ensure(Number.isSafeInteger(scale) && scale > 0, 'Invalid MKV timestamp scale.');
   return scale;
 }
 
@@ -96,7 +96,7 @@ function newTracks(tracksData, { language, trackName, isDefault }) {
     }
   }
   const track = maxTrack + 1;
-  ensure(track < 1000000, '트랙 수가 비정상적입니다.');
+  ensure(track < 1000000, 'Abnormal number of tracks.');
   const random = new Uint8Array(8);
   let uid;
   do {
@@ -112,7 +112,7 @@ function newTracks(tracksData, { language, trackName, isDefault }) {
     uintElement(ID.TrackType, 17), uintElement(ID.FlagDefault,isDefault?1:0),
     uintElement(ID.FlagForced,0), textElement(ID.CodecID,'S_TEXT/UTF8'),
     textElement(ID.Language,language), textElement(ID.LanguageIETF,lang),
-    textElement(ID.Name,trackName || '자막')
+    textElement(ID.Name,trackName || 'Subtitles')
   );
   pieces.push(entry);
   return { content: master(ID.Tracks, ...pieces), track };
@@ -129,7 +129,7 @@ function encodeTrackVint(number) {
       return bytes;
     }
   }
-  throw new Error('트랙 번호가 너무 큽니다.');
+  throw new Error('Track number is too large.');
 }
 
 function subtitleCluster(cue, track, scale) {
@@ -162,13 +162,13 @@ function patchedCues(cueData, oldToNew) {
       if(c.id!==ID.CueTrackPositions){children.push(rawChild(cueData,c));continue;}
       const inner=[];
       for(const t of parseChildren(cueData,c.dataStart,c.end)) {
-        ensure(t.id!==ID.CueReference,'참조형 Cue 인덱스는 현재 지원하지 않습니다.');
+        ensure(t.id!==ID.CueReference,'CueReference indexes are not supported.');
         ensure(t.id!==ID.CueCodecState || readUInt(cueData.subarray(t.dataStart,t.end))===0,
-          '위치 기반 CodecState 인덱스는 현재 지원하지 않습니다.');
+          'Position-based CodecState indexes are not supported.');
         if(t.id===ID.CueClusterPosition){
           const old=readUInt(cueData.subarray(t.dataStart,t.end));
           const revised=oldToNew.get(old);
-          ensure(revised!==undefined, '원본 MKV 탐색 인덱스가 유효하지 않아 안전하게 변환할 수 없습니다.');
+          ensure(revised!==undefined, 'The source MKV seek index is invalid, so it cannot be converted safely.');
           inner.push(uintElement(ID.CueClusterPosition,revised,8));
         } else if(t.id!==ID.CRC32) inner.push(rawChild(cueData,t));
       }
@@ -187,69 +187,69 @@ function cueTimeOf(raw) {
 
 /** Scan MKV top-level EBML structure without reading the media payload into RAM. */
 export async function inspectMkv(file,{onStatus=()=>{},signal=null}={}) {
-  ensure(file && file.size>32,'MKV 파일이 비어 있거나 잘못되었습니다.');
+  ensure(file && file.size>32,'The MKV file is empty or invalid.');
   const ebml=await fileHeader(file,0);
-  ensure(ebml.id===ID.EBML && !ebml.unknown,'유효한 MKV EBML 헤더를 찾지 못했습니다.');
-  ensure(ebml.end<=file.size,'MKV EBML 헤더가 잘렸습니다.');
+  ensure(ebml.id===ID.EBML && !ebml.unknown,'No valid MKV EBML header found.');
+  ensure(ebml.end<=file.size,'The MKV EBML header is truncated.');
   const outputHeader=await outputEbmlHeader(file,ebml);
   let segPos=ebml.end;
   let segment;
   for(let count=0;count<10 && segPos<file.size;count++){
     const p=await fileHeader(file,segPos);
     if(p.id===ID.Segment){segment=p;break;}
-    ensure(!p.unknown && (p.id===ID.Void || p.id===ID.CRC32),'Segment 요소를 찾지 못했습니다.');
+    ensure(!p.unknown && (p.id===ID.Void || p.id===ID.CRC32),'Segment element not found.');
     segPos=p.end;
   }
-  ensure(segment,'MKV Segment를 찾지 못했습니다.');
-  ensure(segment.unknown || segment.end===file.size,'파일이 잘렸거나 여러 Segment가 들어 있는 MKV는 지원하지 않습니다.');
+  ensure(segment,'MKV Segment not found.');
+  ensure(segment.unknown || segment.end===file.size,'Truncated MKV files and files with multiple Segments are not supported.');
   const end=segment.unknown?file.size:segment.end;
   const items=[];
   let pos=segment.dataStart;
   let lastTime=-1;
   let scanned=0;
   while(pos<end) {
-    if(signal?.aborted) throw new DOMException('작업이 취소되었습니다.','AbortError');
+    if(signal?.aborted) throw new DOMException('The operation was cancelled.','AbortError');
     const item=await fileHeader(file,pos);
-    ensure(!item.unknown && item.end<=end && item.end>pos,'크기가 알려지지 않은 요소 또는 손상된 MKV입니다.');
+    ensure(!item.unknown && item.end<=end && item.end>pos,'Element of unknown size, or the MKV is damaged.');
     if(item.id===ID.Cluster){
       item.time=await clusterTimestamp(file,item,signal);
-      ensure(item.time>=lastTime,'클러스터 시간이 역순인 MKV는 현재 지원되지 않습니다.');
+      ensure(item.time>=lastTime,'MKV files with out-of-order Clusters are not supported.');
       lastTime=item.time;
     }
     ensure([ID.Info,ID.Tracks,ID.Cluster,ID.Cues,ID.SeekHead,ID.Attachments,ID.Chapters,ID.Tags,ID.Void,ID.CRC32].includes(item.id),
-      '서명 또는 알 수 없는 최상위 요소가 있는 MKV는 안전을 위해 처리하지 않습니다.');
+      'MKV files with signatures or unknown top-level elements are not processed, for safety.');
     items.push(item);
     pos=item.end;
-    if((++scanned%50)===0) onStatus(`MKV 구조 분석 중 · ${Math.min(100,Math.round(pos*100/file.size))}%`);
-    ensure(scanned<250000,'MKV 요소가 지나치게 많습니다.');
+    if((++scanned%50)===0) onStatus(`Analyzing MKV structure · ${Math.min(100,Math.round(pos*100/file.size))}%`);
+    ensure(scanned<250000,'The MKV contains too many elements.');
   }
-  ensure(items.filter(e=>e.id===ID.Info).length===1 && items.filter(e=>e.id===ID.Tracks).length===1,'Info/Tracks 요소가 중복되었거나 없습니다.');
-  for(const id of [ID.Attachments,ID.Chapters,ID.Tags]) ensure(items.filter(e=>e.id===id).length<=1,'중복된 메타데이터 요소는 현재 지원하지 않습니다.');
+  ensure(items.filter(e=>e.id===ID.Info).length===1 && items.filter(e=>e.id===ID.Tracks).length===1,'Info/Tracks elements are missing or duplicated.');
+  for(const id of [ID.Attachments,ID.Chapters,ID.Tags]) ensure(items.filter(e=>e.id===id).length<=1,'Duplicated metadata elements are not supported.');
   const info=items.find(e=>e.id===ID.Info);
   const tracks=items.find(e=>e.id===ID.Tracks);
-  ensure(info&&tracks,'MKV의 Info 또는 Tracks 요소가 없습니다.');
+  ensure(info&&tracks,'The MKV has no Info or Tracks element.');
   const clusters=items.filter(e=>e.id===ID.Cluster);
-  ensure(clusters.length>0,'영상/음성이 들어 있는 Cluster를 찾지 못했습니다.');
+  ensure(clusters.length>0,'No Cluster with video/audio data found.');
   const infoData=await readElementData(file,info,8*1024*1024);
   const tracksData=await readElementData(file,tracks,8*1024*1024);
   const cueItems=items.filter(e=>e.id===ID.Cues);
-  ensure(cueItems.length<=1,'여러 Cues 요소가 들어 있는 MKV는 지원되지 않습니다.');
+  ensure(cueItems.length<=1,'MKV files with multiple Cues elements are not supported.');
   const cueData=cueItems.length? await readElementData(file,cueItems[0],MAX_META):null;
   return { file, ebml, outputHeader, segment, items, clusters, scale:timestampScaleOf(infoData), info, tracksData, cueData };
 }
 
 /** Create a byte-accurate mux plan. O(file metadata + caption count) RAM. */
 export function planMux(structure, captions, settings={}) {
-  ensure(Array.isArray(captions) && captions.length,'자막이 없습니다.');
-  ensure(captions.length<=50000,'SRT 자막 구간이 너무 많습니다.');
+  ensure(Array.isArray(captions) && captions.length,'No subtitles.');
+  ensure(captions.length<=50000,'Too many SRT cues.');
   for(let i=0;i<captions.length;i++){
     const c=captions[i];
-    ensure(Number.isSafeInteger(c.startMs)&&Number.isSafeInteger(c.endMs)&&c.startMs>=0&&c.endMs>c.startMs&&typeof c.text==='string'&&c.text.length>0,'자막 구간이 잘못되었습니다.');
-    ensure(i===0 || c.startMs>=captions[i-1].startMs,'자막을 시간순으로 정렬해주세요.');
+    ensure(Number.isSafeInteger(c.startMs)&&Number.isSafeInteger(c.endMs)&&c.startMs>=0&&c.endMs>c.startMs&&typeof c.text==='string'&&c.text.length>0,'Invalid subtitle cue.');
+    ensure(i===0 || c.startMs>=captions[i-1].startMs,'Please sort the subtitles by time.');
   }
   const {items,clusters,tracksData,info,scale,segment}=structure;
   const {content:tracksContent,track}=newTracks(tracksData,{
-    language:settings.language||'kor',trackName:settings.trackName||'한국어 자막',isDefault:!!settings.isDefault,
+    language:settings.language||'und',trackName:settings.trackName||'Subtitles',isDefault:!!settings.isDefault,
   });
   const allCaptions=captions.map(c=>({...c,ticks:Math.round(c.startMs*1000000/scale)}));
   const extraItems=items.filter(e=>![ID.Info,ID.Tracks,ID.Cluster,ID.SeekHead,ID.Cues,ID.Void,ID.CRC32].includes(e.id));
@@ -291,7 +291,7 @@ export function planMux(structure, captions, settings={}) {
   const cues=master(ID.Cues,...cuePoints);
   add(cues.byteLength,'bytes',cues);
   const seek=seekHead(positions);
-  ensure(seek.byteLength===seekPlaceholder.byteLength,'SeekHead 크기 오류입니다.');
+  ensure(seek.byteLength===seekPlaceholder.byteLength,'SeekHead size mismatch.');
   const total=structure.outputHeader.byteLength+segmentHeader().byteLength+at;
   return {seek,operations,track,captionCount:captions.length,total,scale};
 }
@@ -302,7 +302,7 @@ export async function writeMux(structure,plan,sink,{onProgress=()=>{},signal=nul
   let done=0;
   let lastReported=-1;
   async function push(chunk) {
-    if(signal?.aborted) throw new DOMException('작업이 취소되었습니다.','AbortError');
+    if(signal?.aborted) throw new DOMException('The operation was cancelled.','AbortError');
     await sink.write(chunk);
     done+=chunk.byteLength;
     const pct=Math.min(100,Math.floor(done*100/plan.total));
@@ -322,8 +322,8 @@ export async function writeMux(structure,plan,sink,{onProgress=()=>{},signal=nul
       if(op.type==='bytes') await push(op.data);
       else await copy(op.data.start,op.data.end);
     }
-    ensure(done===plan.total,'출력 크기 검증에 실패했습니다.');
-    if(signal?.aborted) throw new DOMException('작업이 취소되었습니다.','AbortError');
+    ensure(done===plan.total,'Output size check failed.');
+    if(signal?.aborted) throw new DOMException('The operation was cancelled.','AbortError');
     await sink.close();
   } catch(error){try{await sink.abort?.();}catch{}throw error;}
 }

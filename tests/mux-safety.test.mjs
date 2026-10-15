@@ -11,14 +11,14 @@ const cues=[{startMs:500,endMs:1800,text:'test'}];
 const fixture=(cl=cluster,tail=new Uint8Array())=>new File([ebml,master(ID.Segment,info,tracks,cl),tail],'fixture.mkv');
 test('rejects truncation instead of truncating declared Segment size',async()=>{
   const bytes=await fixture().arrayBuffer();
-  await assert.rejects(()=>inspectMkv(new File([bytes.slice(0,-2)],'broken.mkv')),/잘렸|Segment/);
+  await assert.rejects(()=>inspectMkv(new File([bytes.slice(0,-2)],'broken.mkv')),/truncated|Segment/i);
 });
 test('rejects a second Segment or bytes after the first',async()=>{
   await assert.rejects(()=>inspectMkv(fixture(cluster,master(ID.Segment,info))),/Segment/);
 });
 test('rejects Position found AFTER encoded media',async()=>{
   const cl=master(ID.Cluster,uintElement(ID.Timestamp,0),element(ID.SimpleBlock,Uint8Array.of(0x81,0,0,0x80,42)),uintElement(ID.Position,999));
-  await assert.rejects(()=>inspectMkv(fixture(cl)),/내부 위치/);
+  await assert.rejects(()=>inspectMkv(fixture(cl)),/Position/);
 });
 test('rejects WebM even with an MKV extension',async()=>{
   const file=new File([master(ID.EBML,textElement(ID.DocType,'webm')),master(ID.Segment,info,tracks,cluster)],'renamed.mkv');
